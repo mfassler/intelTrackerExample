@@ -4,7 +4,7 @@ Real-time odometry using the Intel RealSense T265
 
 ## Hardware Requirements
 
-* Intel RealSense depth camera
+* Intel RealSense tracking camera (model T265)
 
 ## Software Requirements
 
