@@ -76,7 +76,7 @@ while True:
         if SEND_UDP_PACKETS:
             sendOrientationPacket(T265body)
 
-        bodyInv = np.linalg.inv(T265body)
+        bodyInv = T265body.T
 
         vels_world_coordinates = np.array([data.velocity.x, data.velocity.y, data.velocity.z])
         vels_camera_coordinates = np.dot(bodyInv, vels_world_coordinates)
