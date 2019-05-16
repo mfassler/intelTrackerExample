@@ -11,10 +11,14 @@ import struct
 import numpy as np
 import transforms3d
 import pyrealsense2 as rs
-import matplotlib.pyplot as plt
 import cv2 as cv
 
+from utils import get_new_gps_coords
+from utils import MavLinkHandler
+mavlink = MavLinkHandler()
 
+_lat = 35.6535
+_lon = 139.837
 
 amap = np.ones((600, 600, 3), np.uint8) * 255
 
@@ -58,7 +62,10 @@ def sendOrientationPacket(rotMatrix):
 
 sensor = profile.get_device().as_tm2()
 
+t0 = None
 vels = np.zeros(3)
+c_rot_cam = np.array([[1, 0],
+                      [0, 1]])
 
 while True:
 
@@ -92,6 +99,7 @@ while True:
         #rpy_rad = np.array(aa)
         #eAngles = rpy_rad * 180/math.pi
         #print("Roll: %.01f,  Pitch: %.01f,  Yaw:  %.01f" % (-eAngles[0], eAngles[1], -eAngles[2]))
+        #mavlink.send_attitude(-eAngles[0], eAngles[1], -eAngles[2])
 
         ################
         ## Get the Euler angles
@@ -99,8 +107,25 @@ while True:
         aa = transforms3d.euler.mat2euler(T265body, axes='syxy')
         rpy_rad = np.array(aa)
         eAngles = rpy_rad * 180/math.pi
-        print("Roll: %.01f,  Pitch: %.01f,  Yaw:  %.01f" % (eAngles[0], eAngles[1]+90, -eAngles[2]))
+        mavlink.send_attitude(eAngles[0], eAngles[1]+90, -eAngles[2])
 
+        if t0 is None:
+            t0 = time.time()
+        else:
+            t1 = time.time()
+            tDelta = t1 - t0
+            t0 = t1
+            cosYaw = np.cos(-rpy_rad[2])
+            sinYaw = np.sin(-rpy_rad[2])
+            c_rot_cam = np.array([[ cosYaw, sinYaw],
+                                  [-sinYaw, cosYaw]])
+            movement = np.dot(c_rot_cam, np.array([vels[0], vels[1]])) * tDelta
+            _lat, _lon = get_new_gps_coords(_lat, _lon, movement[1], movement[0])
+
+            mavlink.send_gps(_lat, _lon)
+
+        print("gps: %.07f, %.07f" % (_lat, _lon),)
+        print("Roll: %.01f, Pitch: %.01f, Yaw: %.01f" % (eAngles[0], eAngles[1]+90, -eAngles[2]))
 
         img = np.copy(amap)
         xyStart = (200, 300)
